@@ -1,0 +1,6 @@
+{
+  "src/api/": "@api",
+  "src/auth/": "@security",
+  "src/billing/": "@payments",
+  "src/ui/": "@frontend"
+}

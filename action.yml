@@ -1,0 +1,16 @@
+name: 'impact-ci'
+description: 'Identify impacted unit and regression tests based on code changes.'
+author: 'Anvean Technologies'
+inputs:
+  base-branch:
+    description: 'The branch to compare against'
+    required: false
+    default: 'main'
+outputs:
+  impacted-unit:
+    description: 'List of impacted unit tests'
+  impacted-e2e:
+    description: 'List of impacted E2E tests'
+runs:
+  using: 'node20'
+  main: 'dist/index.js'

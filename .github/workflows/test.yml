@@ -1,0 +1,63 @@
+name: "Test Impact-CI Action"
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+
+jobs:
+  # Job 1: Build and Verify Sync
+  build-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          
+      - run: npm install
+      
+      - name: Build and Bundle
+        run: npm run package 
+
+      # This ensures you didn't forget to commit your 'dist' changes
+      - name: Verify Dist is Up-to-Date
+        run: |
+          if [ -n "$(git status --porcelain dist/)" ]; then
+            echo "::error ::The 'dist/' directory is out of sync with 'src/'. Please run 'npm run package' and commit the changes."
+            exit 1
+          fi
+
+  # Job 2: Run the action against the current PR diff
+  test-action:
+    needs: build-and-verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 
+
+      - name: Create Mock Mapping
+        run: |
+          echo '{"src/auth": "@security", "src/billing": "@payments"}' > impact-mapping.json
+
+      - name: Run Local Impact-CI
+        id: impact
+        uses: ./ 
+        with:
+          base-branch: 'main'
+
+      - name: Inspect Outputs
+        run: |
+          echo "Impacted Unit Tests: ${{ steps.impact.outputs.impacted-unit }}"
+          echo "Impacted E2E Tags: ${{ steps.impact.outputs.impacted-e2e }}"
+
+      - name: Verify Logic
+        if: steps.impact.outputs.impacted-unit == '[]' && steps.impact.outputs.impacted-e2e == '[]'
+        run: |
+          echo "::warning ::No impacted tests detected."
