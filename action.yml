@@ -1,6 +1,9 @@
 name: 'impacts-ci'
 description: 'Identify impacted unit and regression tests based on code changes.'
 author: 'Anvean Technologies'
+branding:
+  icon: 'filter'   # Represents filtering tests
+  color: 'blue'    # Professional and standard for CI tools
 inputs:
   base-branch:
     description: 'Branch to compare'
