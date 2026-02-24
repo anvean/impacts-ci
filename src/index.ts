@@ -7,7 +7,6 @@ async function run() {
   try {
     const baseBranch = core.getInput('base-branch') || 'main';
     
-    // 1. Get the list of changed files
     const diff = execSync(`git diff --name-only origin/${baseBranch}...HEAD`)
       .toString()
       .split('\n')
@@ -16,46 +15,55 @@ async function run() {
     const impactedUnitTests = new Set<string>();
     const impactedFeatures = new Set<string>();
 
-    // Generic naming patterns for tests
     const testPatterns = [
-      { suffix: 'Test', ext: ['.java', '.kt'] },      // Java/Kotlin
-      { suffix: '.spec', ext: ['.ts', '.js', '.jsx'] }, // Node/React
-      { prefix: 'test_', ext: ['.py'] }               // Python
+      { suffix: 'Test', ext: ['.java', '.kt'] },
+      { suffix: 'IT', ext: ['.java'] }, // Added IT support specifically for you
+      { suffix: '.spec', ext: ['.ts', '.js', '.jsx'] },
+      { prefix: 'test_', ext: ['.py'] }
     ];
 
     diff.forEach(file => {
       const ext = path.extname(file);
-      const dirname = path.dirname(file);
       const basename = path.basename(file, ext);
 
-      // A. UNIT TEST DETECTION (Sibling/Mirror)
+      // --- A. UNIT TEST DETECTION (Deep Search) ---
       testPatterns.forEach(pattern => {
         if (pattern.ext.includes(ext)) {
-          let testCandidate = '';
+          let fileNameToFind = '';
           if (pattern.suffix) {
-            // e.g., UserService.java -> UserServiceTest.java
-            testCandidate = file.replace(`${basename}${ext}`, `${basename}${pattern.suffix}${ext}`);
+            fileNameToFind = `${basename}${pattern.suffix}${ext}`;
           } else if (pattern.prefix) {
-            // e.g., logic.py -> test_logic.py
-            testCandidate = file.replace(basename, `${pattern.prefix}${basename}`);
+            fileNameToFind = `${pattern.prefix}${basename}${ext}`;
           }
 
-          // Check if sibling exists, or look in a 'test' mirror directory
-          const mirrorCandidate = testCandidate.replace('src/main', 'src/test');
-          
-          if (fs.existsSync(testCandidate)) impactedUnitTests.add(testCandidate);
-          else if (fs.existsSync(mirrorCandidate)) impactedUnitTests.add(mirrorCandidate);
+          if (fileNameToFind) {
+            try {
+              // Instead of guessing the path, we ask the OS to find the file
+              // inside the 'src/test' folder recursively.
+              const found = execSync(`find src/test -name "${fileNameToFind}"`)
+                .toString()
+                .split('\n')
+                .filter(f => f.length > 0);
+
+              found.forEach(testPath => impactedUnitTests.add(testPath));
+            } catch (e) {
+              // No file found with that name
+            }
+          }
         }
       });
 
-      // B. FEATURE/E2E DETECTION (Generic Folder Extraction)
-      // Grabs the first relevant directory name as a "feature tag"
+      // --- B. FEATURE/E2E DETECTION ---
       const pathParts = file.split('/');
       if (pathParts.length > 1) {
-        // Skip common root folders to get to the feature (e.g., src, main, java)
-        const ignored = ['src', 'main', 'java', 'app', 'com', 'org'];
-        const feature = pathParts.find(part => !ignored.includes(part));
-        if (feature && feature !== basename) impactedFeatures.add(feature);
+        // We look for the folder name where the file sits (e.g., 'user' or 'controller')
+        // This is more accurate for deep structures like yours.
+        const feature = pathParts[pathParts.length - 2]; 
+        const ignored = ['src', 'main', 'java', 'app', 'com', 'org', 'ecommerce'];
+        
+        if (feature && !ignored.includes(feature) && feature !== basename) {
+          impactedFeatures.add(feature);
+        }
       }
     });
 
