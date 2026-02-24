@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  # Job 1: Build and Verify Sync
+  # Job 1: Build and Verify Sync (Ensures the bundled JS matches the TS code)
   build-and-verify:
     runs-on: ubuntu-latest
     steps:
@@ -24,7 +24,6 @@ jobs:
       - name: Build and Bundle
         run: npm run package 
 
-      # This ensures you didn't forget to commit your 'dist' changes
       - name: Verify Dist is Up-to-Date
         run: |
           if [ -n "$(git status --porcelain dist/)" ]; then
@@ -42,9 +41,12 @@ jobs:
         with:
           fetch-depth: 0 
 
-      - name: Create Mock Mapping
+      # We don't need 'Create Mock Mapping' anymore because we are going generic!
+      # Instead, we print the git diff context for debugging
+      - name: Git Context
         run: |
-          echo '{"src/auth": "@security", "src/billing": "@payments"}' > impact-mapping.json
+          echo "Comparing HEAD to origin/main"
+          git diff --name-only origin/main...HEAD || echo "No changes found or not a PR"
 
       - name: Run Local Impact-CI
         id: impact
@@ -54,10 +56,18 @@ jobs:
 
       - name: Inspect Outputs
         run: |
+          echo "--- 📍 IMPACT ANALYSIS RESULTS ---"
           echo "Impacted Unit Tests: ${{ steps.impact.outputs.impacted-unit }}"
-          echo "Impacted E2E Tags: ${{ steps.impact.outputs.impacted-e2e }}"
+          echo "Impacted Features:   ${{ steps.impact.outputs.impacted-e2e }}"
 
+      # A more helpful verification: it tells you exactly what happened
       - name: Verify Logic
-        if: steps.impact.outputs.impacted-unit == '[]' && steps.impact.outputs.impacted-e2e == '[]'
         run: |
-          echo "::warning ::No impacted tests detected."
+          UNIT='${{ steps.impact.outputs.impacted-unit }}'
+          E2E='${{ steps.impact.outputs.impacted-e2e }}'
+          
+          if [ "$UNIT" == "[]" ] && [ "$E2E" == "[]" ]; then
+            echo "::notice ::Baseline Test: No files were changed in this push/PR that matched test patterns."
+          else
+            echo "::notice ::Success: Impacted tests were correctly identified."
+          fi

@@ -1,4 +1,4 @@
-# **⚡ Impact-CI**
+# ⚡ Impact-CI
 
 **Impact-CI** is a GitHub Actions plugin that intelligently detects **changed code files** and identifies **impacted tests** across repositories. It helps teams **run only the tests affected by code changes**, saving time and CI/CD resources.
 
@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](https://github.com/anvean/impact-ci/blob/main/LICENSE)
 ---
 
-### **Smart Test Selection**
+### Smart Test Selection**
 
 * **Unit tests:** Identifies specific spec files in the same repository as the code (supports .ts, .js, .java, .py).  
 * **Regression/E2E tests:** Identifies tags or suites (Selenium, Playwright, etc.) stored in a separate repository using a mapping file.
@@ -16,7 +16,7 @@
 
 ---
 
-## **🚀 Features**
+## 🚀 Features
 
 * **Automated Diff Analysis:** Detects changed files in a PR or commit automatically.  
 * **Language Agnostic:** Maps source files to unit tests across different languages (e.g., user.ts → user.spec.ts or User.java → UserTest.java).  
@@ -26,7 +26,7 @@
 
 ---
 
-## **📦 Usage**
+## 📦 Usage
 
 1. Create an impact-mapping.json in your root directory:  
  ```
@@ -95,13 +95,13 @@ jobs:
 ```
 ---
 
-## **⚙️ Inputs**
+## ⚙️ Inputs
 
 | Input | Description | Required | Default |
 | :---- | :---- | :---- | :---- |
 | base-branch | The branch to compare the current HEAD against for changes. | ❌ | main |
 
-## **⚙️ Outputs**
+## ⚙️ Outputs
 
 | Output | Description | Example |
 | :---- | :---- | :---- |
@@ -110,7 +110,7 @@ jobs:
 
 ---
 
-## **🛠 Multi-Repo Workflow**
+## 🛠 Multi-Repo Workflow
 
 1. **Change Detected:** A developer pushes code to the **App Repo**.  
 2. **Impact Analysis:** Impact-CI identifies that src/billing/ was modified.  
@@ -120,7 +120,7 @@ jobs:
 
 ---
 
-## **💡 Best Practices**
+## 💡 Best Practices
 
 * **Mapping File:** Maintain your impact-mapping.json as your project grows to ensure new modules trigger the correct regression suites.  
 * **Tagging:** In your regression repo, use tags that match your mapping (e.g., @security). This works regardless of whether you use **Java/Maven**, **Python/Pytest**, or **Playwright**.  
