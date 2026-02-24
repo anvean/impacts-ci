@@ -6,8 +6,15 @@ branding:
   color: 'blue'    # Professional and standard for CI tools
 inputs:
   base-branch:
-    description: 'Branch to compare'
+    description: 'The branch to compare against'
+    required: false
     default: 'main'
+  before:
+    description: 'The SHA of the commit before the push'
+    required: false
+  after:
+    description: 'The SHA of the commit after the push'
+    required: false
 outputs:
   impacted-unit:
     description: 'List of specific test files to run'

@@ -5,28 +5,33 @@ import * as path from 'path';
 async function run() {
   try {
     const baseBranch = core.getInput('base-branch') || 'main';
+    const before = core.getInput('before');
+    const after = core.getInput('after');
     const eventName = process.env.GITHUB_EVENT_NAME;
     
     // 1. Determine the correct Diff Command
     let diffCommand: string;
 
     if (eventName === 'pull_request') {
-      // Compare the feature branch against the base branch
       diffCommand = `git diff --name-only origin/${baseBranch}...HEAD`;
-      core.info(`Running in PR mode: Comparing against ${baseBranch}`);
+      core.info(`🚀 Mode: Pull Request (Comparing vs origin/${baseBranch})`);
+    } else if (before && after && before !== '0000000000000000000000000000000000000000') {
+      // Handles multi-commit pushes by comparing the "before" state to "after"
+      diffCommand = `git diff --name-only ${before}...${after}`;
+      core.info(`🚀 Mode: Multi-commit Push (${before.substring(0,7)}...${after.substring(0,7)})`);
     } else {
-      // Compare the current commit against the previous one (for direct pushes to main)
+      // Fallback for single commits or initial pushes
       diffCommand = `git diff --name-only HEAD^ HEAD`;
-      core.info(`Running in Push mode: Comparing HEAD to parent (HEAD^)`);
+      core.info(`🚀 Mode: Single Commit Push (HEAD^ to HEAD)`);
     }
 
-    // 2. Get the list of changed files
+    // 2. Execute Diff and filter empty lines
     const diff = execSync(diffCommand)
       .toString()
       .split('\n')
       .filter(file => file.length > 0);
 
-    core.info(`Files detected: ${JSON.stringify(diff)}`);
+    core.info(`Files detected in diff: ${JSON.stringify(diff)}`);
 
     const impactedUnitTests = new Set<string>();
     const impactedFeatures = new Set<string>();
@@ -46,7 +51,7 @@ async function run() {
 
         searchPatterns.forEach(testName => {
           try {
-            // Recursive search in src/test for matching filenames
+            // Find matches anywhere in src/test
             const findCmd = `find src/test -name "${testName}"`;
             const found = execSync(findCmd).toString().split('\n').filter(f => f.trim());
 
@@ -56,15 +61,15 @@ async function run() {
               core.info(`📍 Found matching test: ${cleanPath}`);
             });
           } catch (e) {
-            // No file found for this pattern
+            // Silent catch if find returns nothing
           }
         });
 
-        // B. FEATURE/FOLDER DETECTION
+        // B. FEATURE/FOLDER DETECTION (Generic)
         const pathParts = file.split('/');
         if (pathParts.length > 1) {
           const feature = pathParts[pathParts.length - 2];
-          const ignored = ['src', 'main', 'java', 'test', 'com', 'app', 'ecommerce'];
+          const ignored = ['src', 'main', 'java', 'test', 'com', 'app', 'ecommerce', 'org'];
           
           if (feature && !ignored.includes(feature) && feature !== basename) {
             impactedFeatures.add(feature);
@@ -73,6 +78,7 @@ async function run() {
       }
     });
 
+    // 3. Set Final Outputs
     core.setOutput('impacted-unit', JSON.stringify([...impactedUnitTests]));
     core.setOutput('impacted-e2e', JSON.stringify([...impactedFeatures]));
 
