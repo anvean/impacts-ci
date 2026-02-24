@@ -25688,56 +25688,48 @@ const path = __importStar(__nccwpck_require__(6928));
 async function run() {
     try {
         const baseBranch = core.getInput('base-branch') || 'main';
+        // 1. Get changed files - comparing the merge base to current HEAD
         const diff = (0, child_process_1.execSync)(`git diff --name-only origin/${baseBranch}...HEAD`)
             .toString()
             .split('\n')
             .filter(file => file.length > 0);
         const impactedUnitTests = new Set();
         const impactedFeatures = new Set();
-        const testPatterns = [
-            { suffix: 'Test', ext: ['.java', '.kt'] },
-            { suffix: 'IT', ext: ['.java'] }, // Added IT support specifically for you
-            { suffix: '.spec', ext: ['.ts', '.js', '.jsx'] },
-            { prefix: 'test_', ext: ['.py'] }
-        ];
         diff.forEach(file => {
             const ext = path.extname(file);
-            const basename = path.basename(file, ext);
-            // --- A. UNIT TEST DETECTION (Deep Search) ---
-            testPatterns.forEach(pattern => {
-                if (pattern.ext.includes(ext)) {
-                    let fileNameToFind = '';
-                    if (pattern.suffix) {
-                        fileNameToFind = `${basename}${pattern.suffix}${ext}`;
+            const basename = path.basename(file, ext); // e.g., UserController
+            // A. UNIT/INTEGRATION TEST DETECTION
+            if (['.java', '.kt', '.ts', '.js', '.py'].includes(ext)) {
+                // We look for common test naming conventions based on the file changed
+                const possibleTestNames = [
+                    `${basename}Test${ext}`,
+                    `${basename}IT${ext}`,
+                    `test_${basename}${ext}`,
+                    `${basename}.spec${ext}`
+                ];
+                possibleTestNames.forEach(testName => {
+                    try {
+                        // Find files by name anywhere in the src/test directory
+                        // This ignores folder structure differences between src/main and src/test
+                        const findCmd = `find src/test -name "${testName}"`;
+                        const found = (0, child_process_1.execSync)(findCmd).toString().split('\n').filter(f => f.trim());
+                        found.forEach(testPath => {
+                            impactedUnitTests.add(testPath.trim());
+                        });
                     }
-                    else if (pattern.prefix) {
-                        fileNameToFind = `${pattern.prefix}${basename}${ext}`;
+                    catch (e) {
+                        // No matches found for this specific pattern
                     }
-                    if (fileNameToFind) {
-                        try {
-                            // Instead of guessing the path, we ask the OS to find the file
-                            // inside the 'src/test' folder recursively.
-                            const found = (0, child_process_1.execSync)(`find src/test -name "${fileNameToFind}"`)
-                                .toString()
-                                .split('\n')
-                                .filter(f => f.length > 0);
-                            found.forEach(testPath => impactedUnitTests.add(testPath));
-                        }
-                        catch (e) {
-                            // No file found with that name
-                        }
+                });
+                // B. FEATURE/FOLDER DETECTION
+                const pathParts = file.split('/');
+                if (pathParts.length > 1) {
+                    // Grabs the parent directory (e.g., 'user' in '.../user/UserController.java')
+                    const feature = pathParts[pathParts.length - 2];
+                    const ignored = ['src', 'main', 'java', 'test', 'com', 'app', 'ecommerce'];
+                    if (feature && !ignored.includes(feature) && feature !== basename) {
+                        impactedFeatures.add(feature);
                     }
-                }
-            });
-            // --- B. FEATURE/E2E DETECTION ---
-            const pathParts = file.split('/');
-            if (pathParts.length > 1) {
-                // We look for the folder name where the file sits (e.g., 'user' or 'controller')
-                // This is more accurate for deep structures like yours.
-                const feature = pathParts[pathParts.length - 2];
-                const ignored = ['src', 'main', 'java', 'app', 'com', 'org', 'ecommerce'];
-                if (feature && !ignored.includes(feature) && feature !== basename) {
-                    impactedFeatures.add(feature);
                 }
             }
         });
